@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="font-family: Arial, sans-serif; background:#f4f4f7; padding:24px;">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;padding:32px;">
+    <h2 style="color:#4f46e5;">Booking Confirmed 🎉</h2>
+    <p>Hi <strong th:text="${firstName}">there</strong>,</p>
+    <p>Your booking for <strong th:text="${eventName}">the event</strong> has been confirmed.</p>
+    <table style="width:100%;margin:16px 0;border-collapse:collapse;">
+      <tr><td style="padding:8px 0;color:#666;">Booking ID</td><td style="text-align:right;" th:text="${bookingId}"></td></tr>
+      <tr><td style="padding:8px 0;color:#666;">Total Paid</td><td style="text-align:right;" th:text="'$' + ${totalPrice}"></td></tr>
+    </table>
+    <p>Your tickets and QR codes are available in your EventSphere account.</p>
+    <p style="margin-top:32px;color:#999;font-size:12px;">EventSphere — see you there!</p>
+  </div>
+</body>
+</html>

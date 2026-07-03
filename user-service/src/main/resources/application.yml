@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/eventsphere?currentSchema=user_schema,public}
+    username: ${SPRING_DATASOURCE_USERNAME:appuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:eventsphere_dev_pass}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+      hibernate.default_schema: user_schema
+      hibernate.format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: user_schema
+    default-schema: user_schema
+    create-schemas: true
+    baseline-on-migrate: true
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000ms
+
+server:
+  port: 8080
+
+jwt:
+  secret: ${JWT_SECRET:eventsphere-super-secret-jwt-key-2024}
+  expiry-ms: ${JWT_EXPIRY_MS:900000}
+  refresh-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:604800000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.eventsphere: DEBUG
+    org.springframework.security: INFO

@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: booking-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/eventsphere?currentSchema=booking_schema,public}
+    username: ${SPRING_DATASOURCE_USERNAME:appuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:eventsphere_dev_pass}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+      hibernate.default_schema: booking_schema
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: booking_schema
+    default-schema: booking_schema
+    create-schemas: true
+    baseline-on-migrate: true
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+
+server:
+  port: 8080
+
+jwt:
+  secret: ${JWT_SECRET:eventsphere-super-secret-jwt-key-2024}
+
+booking:
+  reservation-timeout-minutes: 15
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

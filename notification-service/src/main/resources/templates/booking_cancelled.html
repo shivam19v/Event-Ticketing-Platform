@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="font-family: Arial, sans-serif; background:#f4f4f7; padding:24px;">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;padding:32px;">
+    <h2 style="color:#dc2626;">Booking Cancelled</h2>
+    <p>Hi <strong th:text="${firstName}">there</strong>,</p>
+    <p>Your booking for <strong th:text="${eventName}">the event</strong> has been cancelled.</p>
+    <p>Booking ID: <span th:text="${bookingId}"></span></p>
+    <p>If a payment was made, a refund will be processed within 3-5 business days.</p>
+    <p style="margin-top:32px;color:#999;font-size:12px;">EventSphere</p>
+  </div>
+</body>
+</html>

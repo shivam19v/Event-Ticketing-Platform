@@ -1,0 +1,265 @@
+version: '3.8'
+
+services:
+  # ─── Infrastructure ────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: eventsphere-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-eventsphere}
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-eventsphere_dev_pass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d eventsphere"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - eventsphere-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: eventsphere-redis
+    command: redis-server --appendonly yes --requirepass ""
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eventsphere-net
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: eventsphere-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - eventsphere-net
+
+  # ─── Microservices ─────────────────────────────────────────────────────────
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: eventsphere-user-service
+    ports:
+      - "8001:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-eventsphere}?currentSchema=user_schema,public
+      SPRING_DATASOURCE_USERNAME: appuser
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-eventsphere_dev_pass}
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-eventsphere-super-secret-jwt-key-2024}
+      JWT_EXPIRY_MS: ${JWT_EXPIRY_MS:-900000}
+      JWT_REFRESH_EXPIRY_MS: ${JWT_REFRESH_EXPIRY_MS:-604800000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - eventsphere-net
+    restart: unless-stopped
+
+  event-service:
+    build:
+      context: ./event-service
+      dockerfile: Dockerfile
+    container_name: eventsphere-event-service
+    ports:
+      - "8002:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-eventsphere}?currentSchema=event_schema,public
+      SPRING_DATASOURCE_USERNAME: appuser
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-eventsphere_dev_pass}
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-eventsphere-super-secret-jwt-key-2024}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - eventsphere-net
+    restart: unless-stopped
+
+  booking-service:
+    build:
+      context: ./booking-service
+      dockerfile: Dockerfile
+    container_name: eventsphere-booking-service
+    ports:
+      - "8003:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-eventsphere}?currentSchema=booking_schema,public
+      SPRING_DATASOURCE_USERNAME: appuser
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-eventsphere_dev_pass}
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
+      JWT_SECRET: ${JWT_SECRET:-eventsphere-super-secret-jwt-key-2024}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - eventsphere-net
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: eventsphere-payment-service
+    ports:
+      - "8004:8080"
+    environment:
+      DATABASE_URL: postgres://appuser:${DB_PASSWORD:-eventsphere_dev_pass}@postgres:5432/${DB_NAME:-eventsphere}?sslmode=disable
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      JWT_SECRET: ${JWT_SECRET:-eventsphere-super-secret-jwt-key-2024}
+      PORT: "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - eventsphere-net
+    restart: unless-stopped
+
+  ticket-service:
+    build:
+      context: ./ticket-service
+      dockerfile: Dockerfile
+    container_name: eventsphere-ticket-service
+    ports:
+      - "8005:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-eventsphere}?currentSchema=ticket_schema,public
+      SPRING_DATASOURCE_USERNAME: appuser
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-eventsphere_dev_pass}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
+      JWT_SECRET: ${JWT_SECRET:-eventsphere-super-secret-jwt-key-2024}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - eventsphere-net
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: eventsphere-notification-service
+    ports:
+      - "8006:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-eventsphere}?currentSchema=notification_schema,public
+      SPRING_DATASOURCE_USERNAME: appuser
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-eventsphere_dev_pass}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-SG.placeholder}
+      FROM_EMAIL: ${FROM_EMAIL:-noreply@eventsphere.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - eventsphere-net
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: eventsphere-api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      USER_SERVICE_URL: http://user-service:8080
+      EVENT_SERVICE_URL: http://event-service:8080
+      BOOKING_SERVICE_URL: http://booking-service:8080
+      PAYMENT_SERVICE_URL: http://payment-service:8080
+      TICKET_SERVICE_URL: http://ticket-service:8080
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      JWT_SECRET: ${JWT_SECRET:-eventsphere-super-secret-jwt-key-2024}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      PORT: "8000"
+    depends_on:
+      - user-service
+      - event-service
+      - booking-service
+      - payment-service
+      - ticket-service
+    networks:
+      - eventsphere-net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: eventsphere-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      # Read at REQUEST TIME by src/app/api/[...path]/route.ts (the server-side proxy).
+      # Docker resolves 'api-gateway' via the shared eventsphere-net network.
+      API_GATEWAY_URL: http://api-gateway:8000
+    depends_on:
+      - api-gateway
+    networks:
+      - eventsphere-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  eventsphere-net:
+    driver: bridge

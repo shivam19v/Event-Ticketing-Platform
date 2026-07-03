@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: ticket-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/eventsphere?currentSchema=ticket_schema,public}
+    username: ${SPRING_DATASOURCE_USERNAME:appuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:eventsphere_dev_pass}
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 5
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+      hibernate.default_schema: ticket_schema
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: ticket_schema
+    default-schema: ticket_schema
+    create-schemas: true
+    baseline-on-migrate: true
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          multiplier: 2
+
+server:
+  port: 8080
+
+jwt:
+  secret: ${JWT_SECRET:eventsphere-super-secret-jwt-key-2024}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
