@@ -260,3 +260,6 @@ kubectl get pods -n eventsphere -w
 - Docker Compose (local dev)
 - Kubernetes (production)
 - GitHub Actions (CI/CD)
+=======
+# Event-Ticketing-Platform
+A comprehensive full-stack event management and ticketing platform using Java and Spring Boot.
